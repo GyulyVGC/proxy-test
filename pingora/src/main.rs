@@ -22,7 +22,7 @@ impl ProxyHttp for LB {
             .select(b"", 256) // hash doesn't matter
             .unwrap();
 
-        println!("upstream peer is: {upstream:?}");
+        println!("upstream peer is: {} (weight = {})", upstream.addr, upstream.weight);
 
         let peer = Box::new(HttpPeer::new(upstream, true, "one.one.one.one".to_string()));
         Ok(peer)
