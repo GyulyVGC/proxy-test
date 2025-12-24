@@ -62,8 +62,8 @@ fn main() {
     let mut lb = pingora_proxy::http_proxy_service(&my_server.configuration, LB(upstreams));
     lb.add_tcp("0.0.0.0:6188");
 
-    let cert_path = format!("{}/tests/keys/server.crt", env!("CARGO_MANIFEST_DIR"));
-    let key_path = format!("{}/tests/keys/key.pem", env!("CARGO_MANIFEST_DIR"));
+    let cert_path = format!("{}/tls/server.crt", env!("CARGO_MANIFEST_DIR"));
+    let key_path = format!("{}/tls/key.pem", env!("CARGO_MANIFEST_DIR"));
 
     let mut tls_settings =
         pingora_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
