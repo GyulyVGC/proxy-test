@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 async-trait = "0.1.89"
-pingora-core = "0.6.0"
+pingora-core = { version = "0.6.0", features = ["rustls"] }
 pingora-load-balancing = "0.6.0"
 pingora-proxy = "0.6.0"
 pingora-http = "0.6.0"
