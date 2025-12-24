@@ -1,2 +1,2 @@
 # proxy-test
-Test Rust-based framework to build proxies
+Test Rust-based frameworks to build proxies
