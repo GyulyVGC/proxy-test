@@ -60,7 +60,6 @@ fn main() {
     let upstreams = background.task();
 
     let mut lb = pingora_proxy::http_proxy_service(&my_server.configuration, LB(upstreams));
-    lb.add_tcp("0.0.0.0:6188");
 
     let cert_path = format!("{}/tls/server.crt", env!("CARGO_MANIFEST_DIR"));
     let key_path = format!("{}/tls/key.pem", env!("CARGO_MANIFEST_DIR"));
