@@ -30,7 +30,8 @@ impl ProxyHttp for LB {
             upstream.addr, upstream.weight
         );
 
-        let peer = Box::new(HttpPeer::new(upstream, false, "".to_string()));
+        let sni = if self.tls { "one.one.one.one" } else { "" }.to_string();
+        let peer = Box::new(HttpPeer::new(upstream, self.tls, sni));
         Ok(peer)
     }
 
