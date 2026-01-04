@@ -83,6 +83,7 @@ fn main() {
 
     let mut lb =
         pingora_proxy::http_proxy_service(&my_server.configuration, LB { lb: upstreams, tls });
+    lb.add_tcp(lb_address);
 
     if tls {
         let cert_path = format!("{}/tls/server.crt", env!("CARGO_MANIFEST_DIR"));
@@ -90,9 +91,7 @@ fn main() {
         let mut tls_settings =
             pingora_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
         tls_settings.enable_h2();
-        lb.add_tls_with_settings(lb_address, None, tls_settings);
-    } else {
-        lb.add_tcp(lb_address);
+        // lb.add_tls_with_settings(lb_address, None, tls_settings);
     }
 
     my_server.add_service(lb);
