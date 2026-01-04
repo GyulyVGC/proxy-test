@@ -56,7 +56,7 @@ fn main() {
     println!("Running load balancer at {lb_address}");
 
     let mut upstream_sockets = if tls {
-        vec!["1.1.1.1:8080", "1.1.1.2:8080"]
+        vec!["1.1.1.1:443", "1.1.1.2:443"]
     } else {
         vec!["0.0.0.0:8080", "0.0.0.0:8081"]
     };
