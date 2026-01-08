@@ -100,7 +100,7 @@ impl ProxyHttp for NullnetProxy {
             .ip();
 
         let upstream = self.get_or_add_upstream(client_ip);
-        println!("client: {}\nupstream: {}\n\n", client_ip, upstream);
+        println!("client: {}\nupstream: {}\n", client_ip, upstream);
 
         let peer = Box::new(HttpPeer::new(upstream, false, String::new()));
         Ok(peer)
@@ -109,10 +109,7 @@ impl ProxyHttp for NullnetProxy {
 
 fn main() {
     let proxy_address = "0.0.0.0:7777";
-    println!("Running Nullnet proxy at {proxy_address}");
-
-    let mut upstream_sockets = vec!["0.0.0.0:8080", "0.0.0.0:8081"];
-    println!("Upstreams: {upstream_sockets:?}");
+    println!("Running Nullnet proxy at {proxy_address}\n");
 
     // start proxy server
     let opt = Opt::parse_args();
@@ -131,4 +128,57 @@ fn main() {
 pub struct OvsVlan {
     pub id: u16,
     pub ports: Vec<Ipv4Network>,
+}
+
+#[cfg(test)]
+mod tests {
+
+    use ipnetwork::Ipv4Network;
+    use serde_test::{Configure, Token, assert_tokens};
+    use std::net::Ipv4Addr;
+    use crate::OvsVlan;
+
+    fn vlan_for_tests() -> OvsVlan {
+        OvsVlan {
+                id: 10,
+                ports: vec![
+                    Ipv4Network::new(Ipv4Addr::new(8, 8, 8, 8), 24).unwrap(),
+                    Ipv4Network::new(Ipv4Addr::new(16, 16, 16, 16), 8).unwrap(),
+                ],
+            }
+    }
+
+    #[test]
+    fn test_serialize_and_deserialize_vlan() {
+        let vlan_setup_request = vlan_for_tests();
+
+        assert_tokens(
+            &vlan_setup_request.readable(),
+            &[
+                Token::Struct {
+                    name: "OvsVlan",
+                    len: 2,
+                },
+                Token::Str("id"),
+                Token::U16(10),
+                Token::Str("ports"),
+                Token::Seq { len: Some(2) },
+                Token::Str("8.8.8.8/24"),
+                Token::Str("16.16.16.16/8"),
+                Token::SeqEnd,
+                Token::StructEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_toml_string_vlan() {
+        let vlan_setup_request = vlan_for_tests();
+
+        assert_eq!(
+            toml::to_string(&vlan_setup_request).unwrap(),
+            "id = 10\n\
+             ports = [\"8.8.8.8/24\", \"16.16.16.16/8\"]\n"
+        );
+    }
 }
