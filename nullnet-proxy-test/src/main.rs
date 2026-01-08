@@ -36,6 +36,8 @@ impl NullnetProxy {
             return *upstream;
         }
 
+        println!("Setting up new upstream for client {client_ip}...");
+
         let vlan_id = {
             let mut last_id = self.last_registered_vlan.lock().unwrap();
             *last_id += 1;
@@ -100,7 +102,7 @@ impl ProxyHttp for NullnetProxy {
             .ip();
 
         let upstream = self.get_or_add_upstream(client_ip);
-        println!("client: {}\nupstream: {}\n", client_ip, upstream);
+        println!("client: {client_ip}\nupstream: {upstream}\n");
 
         let peer = Box::new(HttpPeer::new(upstream, false, String::new()));
         Ok(peer)
@@ -133,19 +135,19 @@ pub struct OvsVlan {
 #[cfg(test)]
 mod tests {
 
+    use crate::OvsVlan;
     use ipnetwork::Ipv4Network;
     use serde_test::{Configure, Token, assert_tokens};
     use std::net::Ipv4Addr;
-    use crate::OvsVlan;
 
     fn vlan_for_tests() -> OvsVlan {
         OvsVlan {
-                id: 10,
-                ports: vec![
-                    Ipv4Network::new(Ipv4Addr::new(8, 8, 8, 8), 24).unwrap(),
-                    Ipv4Network::new(Ipv4Addr::new(16, 16, 16, 16), 8).unwrap(),
-                ],
-            }
+            id: 10,
+            ports: vec![
+                Ipv4Network::new(Ipv4Addr::new(8, 8, 8, 8), 24).unwrap(),
+                Ipv4Network::new(Ipv4Addr::new(16, 16, 16, 16), 8).unwrap(),
+            ],
+        }
     }
 
     #[test]
