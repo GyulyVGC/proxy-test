@@ -46,7 +46,7 @@ impl NullnetProxy {
         let port_ip = Ipv4Addr::new(10, 0, vlan_id as u8, 2);
         let ipv4_network = Ipv4Network::new(port_ip, 24).unwrap();
         self.send_vlan_setup_request(
-            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            IpAddr::V4(Ipv4Addr::new(192, 168, 1, 130)),
             vlan_id,
             vec![ipv4_network],
         );
