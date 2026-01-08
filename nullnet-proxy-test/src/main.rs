@@ -1,0 +1,134 @@
+use async_trait::async_trait;
+use ipnetwork::Ipv4Network;
+use pingora_core::server::Server;
+use pingora_core::server::configuration::Opt;
+use pingora_core::upstreams::peer::HttpPeer;
+use pingora_core::{Error, ErrorType, Result};
+use pingora_proxy::{ProxyHttp, Session};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::sync::Arc;
+use std::sync::Mutex;
+
+pub struct NullnetProxy {
+    /// Mapping of client IPs to upstream service addresses
+    cs_map: Arc<Mutex<HashMap<IpAddr, SocketAddr>>>,
+    /// Last registered VLAN ID
+    last_registered_vlan: Arc<Mutex<u16>>,
+    /// UDP socket for sending VLAN setup requests
+    udp_socket: Arc<UdpSocket>,
+}
+
+impl NullnetProxy {
+    pub fn new() -> Self {
+        Self {
+            cs_map: Arc::new(Mutex::new(HashMap::new())),
+            last_registered_vlan: Arc::new(Mutex::new(99)),
+            udp_socket: Arc::new(
+                UdpSocket::bind("0.0.0.0:9997").expect("Failed to bind UDP socket"),
+            ),
+        }
+    }
+
+    pub fn get_or_add_upstream(&self, client_ip: IpAddr) -> SocketAddr {
+        if let Some(upstream) = self.cs_map.lock().unwrap().get(&client_ip) {
+            return *upstream;
+        }
+
+        let vlan_id = {
+            let mut last_id = self.last_registered_vlan.lock().unwrap();
+            *last_id += 1;
+            *last_id
+        };
+
+        // create dedicated VLAN on this machine
+        let port_ip = Ipv4Addr::new(10, 0, vlan_id as u8, 2);
+        let ipv4_network = Ipv4Network::new(port_ip, 24).unwrap();
+        self.send_vlan_setup_request(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            vlan_id,
+            vec![ipv4_network],
+        );
+
+        // create dedicated VLAN on webserver and get its upstream address
+        let port_ip = Ipv4Addr::new(10, 0, vlan_id as u8, 1);
+        let ipv4_network = Ipv4Network::new(port_ip, 24).unwrap();
+        self.send_vlan_setup_request(
+            IpAddr::V4(Ipv4Addr::new(192, 168, 1, 104)),
+            vlan_id,
+            vec![ipv4_network],
+        );
+
+        let upstream = SocketAddr::new(IpAddr::V4(port_ip), 3001);
+        let mut map = self.cs_map.lock().unwrap();
+        map.insert(client_ip, upstream);
+        upstream
+    }
+
+    pub fn send_vlan_setup_request(&self, to: IpAddr, vlan_id: u16, vlan_ports: Vec<Ipv4Network>) {
+        let ovs_vlan = OvsVlan {
+            id: vlan_id,
+            ports: vlan_ports,
+        };
+        let request_body = toml::to_string(&ovs_vlan).unwrap();
+        let to = SocketAddr::new(to, 9998);
+        self.udp_socket
+            .send_to(request_body.as_bytes(), to)
+            .expect("Failed to send VLAN setup request");
+    }
+}
+
+#[async_trait]
+impl ProxyHttp for NullnetProxy {
+    type CTX = ();
+    fn new_ctx(&self) -> Self::CTX {}
+
+    async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
+        let client_ip = session
+            .client_addr()
+            .ok_or_else(|| {
+                Error::explain(ErrorType::BindError, "Client address not found in session")
+            })?
+            .as_inet()
+            .ok_or_else(|| {
+                Error::explain(
+                    ErrorType::BindError,
+                    "Client address is not an Inet address",
+                )
+            })?
+            .ip();
+
+        let upstream = self.get_or_add_upstream(client_ip);
+        println!("client: {}\nupstream: {}\n\n", client_ip, upstream);
+
+        let peer = Box::new(HttpPeer::new(upstream, false, String::new()));
+        Ok(peer)
+    }
+}
+
+fn main() {
+    let proxy_address = "0.0.0.0:7777";
+    println!("Running Nullnet proxy at {proxy_address}");
+
+    let mut upstream_sockets = vec!["0.0.0.0:8080", "0.0.0.0:8081"];
+    println!("Upstreams: {upstream_sockets:?}");
+
+    // start proxy server
+    let opt = Opt::parse_args();
+    let mut my_server = Server::new(Some(opt)).unwrap();
+    my_server.bootstrap();
+
+    let mut proxy =
+        pingora_proxy::http_proxy_service(&my_server.configuration, NullnetProxy::new());
+    proxy.add_tcp(proxy_address);
+
+    my_server.add_service(proxy);
+    my_server.run_forever();
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Default)]
+pub struct OvsVlan {
+    pub id: u16,
+    pub ports: Vec<Ipv4Network>,
+}
