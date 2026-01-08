@@ -24,7 +24,7 @@ impl NullnetProxy {
     pub fn new() -> Self {
         Self {
             cs_map: Arc::new(Mutex::new(HashMap::new())),
-            last_registered_vlan: Arc::new(Mutex::new(99)),
+            last_registered_vlan: Arc::new(Mutex::new(100)),
             udp_socket: Arc::new(
                 UdpSocket::bind("0.0.0.0:9997").expect("Failed to bind UDP socket"),
             ),
