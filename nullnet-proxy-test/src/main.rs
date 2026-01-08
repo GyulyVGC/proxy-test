@@ -63,8 +63,11 @@ impl NullnetProxy {
         );
 
         let upstream = SocketAddr::new(IpAddr::V4(port_ip), 3001);
-        let mut map = self.cs_map.lock().unwrap();
-        map.insert(client_ip, upstream);
+        self.cs_map.lock().unwrap().insert(client_ip, upstream);
+
+        // wait a bit for VLAN setup to complete
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
         upstream
     }
 
