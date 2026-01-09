@@ -43,9 +43,10 @@ impl NullnetProxy {
             *last_id += 1;
             *last_id
         };
+        let [a, b] = vlan_id.to_be_bytes();
 
         // create dedicated VLAN on this machine
-        let port_ip = Ipv4Addr::new(10, 0, vlan_id as u8, 2);
+        let port_ip = Ipv4Addr::new(10, a, b, 2);
         let ipv4_network = Ipv4Network::new(port_ip, 24).unwrap();
         self.send_vlan_setup_request(
             IpAddr::V4(Ipv4Addr::new(192, 168, 1, 130)),
@@ -54,7 +55,7 @@ impl NullnetProxy {
         );
 
         // create dedicated VLAN on webserver and get its upstream address
-        let port_ip = Ipv4Addr::new(10, 0, vlan_id as u8, 1);
+        let port_ip = Ipv4Addr::new(10, a, b, 1);
         let ipv4_network = Ipv4Network::new(port_ip, 24).unwrap();
         self.send_vlan_setup_request(
             IpAddr::V4(Ipv4Addr::new(192, 168, 1, 104)),
