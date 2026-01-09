@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use ipnetwork::Ipv4Network;
 use pingora_core::server::Server;
-use pingora_core::server::configuration::Opt;
 use pingora_core::upstreams::peer::HttpPeer;
 use pingora_core::{Error, ErrorType, Result};
 use pingora_proxy::{ProxyHttp, Session};
@@ -31,15 +30,15 @@ impl NullnetProxy {
         }
     }
 
-    pub fn get_or_add_upstream(&self, client_ip: IpAddr) -> SocketAddr {
-        if let Some(upstream) = self.cs_map.lock().unwrap().get(&client_ip) {
-            return *upstream;
+    pub fn get_or_add_upstream(&self, client_ip: IpAddr) -> Option<SocketAddr> {
+        if let Some(upstream) = self.cs_map.lock().ok()?.get(&client_ip) {
+            return Some(*upstream);
         }
 
         println!("Setting up new upstream for client {client_ip}...");
 
         let vlan_id = {
-            let mut last_id = self.last_registered_vlan.lock().unwrap();
+            let mut last_id = self.last_registered_vlan.lock().ok()?;
             *last_id += 1;
             *last_id
         };
@@ -47,41 +46,45 @@ impl NullnetProxy {
 
         // create dedicated VLAN on this machine
         let port_ip = Ipv4Addr::new(10, a, b, 2);
-        let ipv4_network = Ipv4Network::new(port_ip, 24).unwrap();
+        let ipv4_network = Ipv4Network::new(port_ip, 24).ok()?;
         self.send_vlan_setup_request(
             IpAddr::V4(Ipv4Addr::new(192, 168, 1, 130)),
             vlan_id,
             vec![ipv4_network],
-        );
+        )?;
 
         // create dedicated VLAN on webserver and get its upstream address
         let port_ip = Ipv4Addr::new(10, a, b, 1);
-        let ipv4_network = Ipv4Network::new(port_ip, 24).unwrap();
+        let ipv4_network = Ipv4Network::new(port_ip, 24).ok()?;
         self.send_vlan_setup_request(
             IpAddr::V4(Ipv4Addr::new(192, 168, 1, 104)),
             vlan_id,
             vec![ipv4_network],
-        );
+        )?;
 
         let upstream = SocketAddr::new(IpAddr::V4(port_ip), 3001);
-        self.cs_map.lock().unwrap().insert(client_ip, upstream);
+        self.cs_map.lock().ok()?.insert(client_ip, upstream);
 
         // wait a bit for VLAN setup to complete
         std::thread::sleep(std::time::Duration::from_secs(1));
 
-        upstream
+        Some(upstream)
     }
 
-    pub fn send_vlan_setup_request(&self, to: IpAddr, vlan_id: u16, vlan_ports: Vec<Ipv4Network>) {
+    pub fn send_vlan_setup_request(
+        &self,
+        to: IpAddr,
+        vlan_id: u16,
+        vlan_ports: Vec<Ipv4Network>,
+    ) -> Option<()> {
         let ovs_vlan = OvsVlan {
             id: vlan_id,
             ports: vlan_ports,
         };
-        let request_body = toml::to_string(&ovs_vlan).unwrap();
+        let request_body = toml::to_string(&ovs_vlan).ok()?;
         let to = SocketAddr::new(to, 9998);
-        self.udp_socket
-            .send_to(request_body.as_bytes(), to)
-            .expect("Failed to send VLAN setup request");
+        self.udp_socket.send_to(request_body.as_bytes(), to).ok()?;
+        Some(())
     }
 }
 
@@ -105,7 +108,9 @@ impl ProxyHttp for NullnetProxy {
             })?
             .ip();
 
-        let upstream = self.get_or_add_upstream(client_ip);
+        let upstream = self
+            .get_or_add_upstream(client_ip)
+            .ok_or_else(|| Error::explain(ErrorType::BindError, "Failed to retrieve upstream"))?;
         println!("client: {client_ip}\nupstream: {upstream}\n");
 
         let peer = Box::new(HttpPeer::new(upstream, false, String::new()));
@@ -118,8 +123,7 @@ fn main() {
     println!("Running Nullnet proxy at {proxy_address}\n");
 
     // start proxy server
-    let opt = Opt::parse_args();
-    let mut my_server = Server::new(Some(opt)).unwrap();
+    let mut my_server = Server::new(None).unwrap();
     my_server.bootstrap();
 
     let mut proxy =
