@@ -112,7 +112,7 @@ impl ProxyHttp for NullnetProxy {
 
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
         let uri = &session.req_header().uri;
-        dbg!(&session);
+        dbg!(&session.req_header());
         // .host()
         // .ok_or_else(|| Error::explain(ErrorType::BindError, "No host in request URI"))?;
         let client_ip = session
