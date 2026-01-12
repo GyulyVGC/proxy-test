@@ -11,6 +11,8 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::sync::Mutex;
 
+const PROXY_PORT: u16 = 7777;
+
 pub struct NullnetProxy {
     /// The available services and their host machine addresses
     services: HashMap<Service, SocketAddr>,
@@ -111,10 +113,20 @@ impl ProxyHttp for NullnetProxy {
     fn new_ctx(&self) -> Self::CTX {}
 
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
-        let uri = &session.req_header().uri;
-        dbg!(&session.req_header());
-        // .host()
-        // .ok_or_else(|| Error::explain(ErrorType::BindError, "No host in request URI"))?;
+        let host_header = session
+            .get_header("host")
+            .ok_or_else(|| Error::explain(ErrorType::BindError, "No host header in request"))?;
+        let host_str = host_header
+            .to_str()
+            .map_err(|_| Error::explain(ErrorType::BindError, "Invalid host header"))?;
+        let url = host_str
+            .strip_suffix(&format!(":{PROXY_PORT}"))
+            .ok_or_else(|| {
+                Error::explain(
+                    ErrorType::BindError,
+                    "Host header does not contain proxy port",
+                )
+            })?;
         let client_ip = session
             .client_addr()
             .ok_or_else(|| {
@@ -129,7 +141,7 @@ impl ProxyHttp for NullnetProxy {
             })?
             .ip();
 
-        let service = Service(uri.to_string());
+        let service = Service(url.to_string());
         let client_req = ClientRequest { client_ip, service };
         println!("{client_req}");
         let upstream = self
@@ -143,7 +155,7 @@ impl ProxyHttp for NullnetProxy {
 }
 
 fn main() {
-    let proxy_address = "0.0.0.0:7777";
+    let proxy_address = format!("0.0.0.0:{PROXY_PORT}");
     println!("Running Nullnet proxy at {proxy_address}\n");
 
     // start proxy server
@@ -152,7 +164,7 @@ fn main() {
 
     let mut proxy =
         pingora_proxy::http_proxy_service(&my_server.configuration, NullnetProxy::new());
-    proxy.add_tcp(proxy_address);
+    proxy.add_tcp(&proxy_address);
 
     my_server.add_service(proxy);
     my_server.run_forever();
