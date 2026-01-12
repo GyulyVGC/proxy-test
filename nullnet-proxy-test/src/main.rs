@@ -111,13 +111,10 @@ impl ProxyHttp for NullnetProxy {
     fn new_ctx(&self) -> Self::CTX {}
 
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
-        println!("Upstream peer...");
-        let uri = session
-            .req_header()
-            .uri
-            .host()
-            .ok_or_else(|| Error::explain(ErrorType::BindError, "No host in request URI"))?;
-        println!("Upstream URI: {}", uri);
+        let uri = session.req_header().uri;
+        dbg!(uri);
+        // .host()
+        // .ok_or_else(|| Error::explain(ErrorType::BindError, "No host in request URI"))?;
         let client_ip = session
             .client_addr()
             .ok_or_else(|| {
