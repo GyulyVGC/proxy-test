@@ -1,0 +1,9 @@
+[[services]]
+url = "color.com"
+host = "192.168.1.104"
+port = 3001
+
+[[services]]
+url = "directory.com"
+host = "192.168.1.104"
+port = 8080
