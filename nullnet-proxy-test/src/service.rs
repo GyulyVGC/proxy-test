@@ -97,7 +97,7 @@ mod tests {
             "[[services]]\n\
              name = \"color.com\"\n\
              host = \"192.168.1.104\"\n\
-             port = 3001\n\
+             port = 3001\n\n\
              [[services]]\n\
              name = \"directory.com\"\n\
              host = \"192.168.1.104\"\n\
