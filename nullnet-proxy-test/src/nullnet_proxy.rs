@@ -1,4 +1,4 @@
-use crate::service::ServicesToml;
+use crate::service::{ServiceToml, ServicesToml};
 use crate::{BrowserRequest, OvsVlan, Service};
 use ipnetwork::Ipv4Network;
 use std::collections::HashMap;
@@ -26,8 +26,7 @@ impl NullnetProxy {
         let services: HashMap<Service, SocketAddr> = services_toml
             .services
             .into_iter()
-            .map(|service_toml| service_toml.into_mapping())
-            .flatten()
+            .filter_map(ServiceToml::into_mapping)
             .collect();
 
         Self {
