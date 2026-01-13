@@ -1,9 +1,9 @@
 [[services]]
-url = "color.com"
+name = "color.com"
 host = "192.168.1.104"
 port = 3001
 
 [[services]]
-url = "directory.com"
+name = "directory.com"
 host = "192.168.1.104"
 port = 8080
