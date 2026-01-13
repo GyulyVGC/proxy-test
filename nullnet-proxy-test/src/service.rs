@@ -94,7 +94,7 @@ mod tests {
 
         assert_eq!(
             toml::to_string(&services).unwrap(),
-            "[[services]]\n\"
+            "[[services]]\n\
              name = \"color.com\"\n\
              host = \"192.168.1.104\"\n\
              port = 3001\n\
