@@ -20,12 +20,12 @@ pub struct NullnetProxy {
 impl NullnetProxy {
     pub fn new() -> Self {
         let toml_str = fs::read_to_string("services.toml").expect("Failed to read services.toml");
-        let mut services_toml =
+        let services_toml =
             toml::from_str::<ServicesToml>(&toml_str).expect("Failed to parse services.toml");
 
         let services: HashMap<Service, SocketAddr> = services_toml
             .services
-            .iter()
+            .into_iter()
             .map(|service_toml| service_toml.into_mapping())
             .flatten()
             .collect();
