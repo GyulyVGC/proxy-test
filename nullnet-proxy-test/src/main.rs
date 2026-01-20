@@ -1,6 +1,5 @@
 mod nullnet_proxy;
 mod service;
-mod proto;
 
 use crate::nullnet_proxy::NullnetProxy;
 use crate::service::Service;
