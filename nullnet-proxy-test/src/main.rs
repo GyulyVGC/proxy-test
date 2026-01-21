@@ -9,6 +9,7 @@ use pingora_core::{Error, ErrorType, Result};
 use pingora_proxy::{ProxyHttp, Session};
 use std::fmt::Display;
 use std::net::IpAddr;
+use std::thread;
 
 const PROXY_PORT: u16 = 7777;
 
@@ -72,9 +73,12 @@ async fn main() -> Result<(), nullnet_liberror::Error> {
     let nullnet_proxy = NullnetProxy::new().await?;
     let mut proxy = pingora_proxy::http_proxy_service(&my_server.configuration, nullnet_proxy);
     proxy.add_tcp(&proxy_address);
-
     my_server.add_service(proxy);
-    my_server.run_forever();
+
+    // run on separate thread to avoid "cannot start a runtime from within a runtime"
+    let handle = thread::spawn(|| my_server.run_forever());
+    handle.join().unwrap();
+    Ok(())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
