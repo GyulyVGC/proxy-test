@@ -1,15 +1,12 @@
 mod nullnet_proxy;
-mod service;
 
 use crate::nullnet_proxy::NullnetProxy;
-use crate::service::Service;
 use async_trait::async_trait;
-use ipnetwork::Ipv4Network;
+use nullnet_liberror::{ErrorHandler, Location, location};
 use pingora_core::server::Server;
 use pingora_core::upstreams::peer::HttpPeer;
 use pingora_core::{Error, ErrorType, Result};
 use pingora_proxy::{ProxyHttp, Session};
-use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::net::IpAddr;
 
@@ -49,11 +46,12 @@ impl ProxyHttp for NullnetProxy {
             })?
             .ip();
 
-        let service = Service(url.to_string());
+        let service = url.to_string();
         let client_req = BrowserRequest { client_ip, service };
         println!("{client_req}");
         let upstream = self
             .get_or_add_upstream(client_req)
+            .await
             .ok_or_else(|| Error::explain(ErrorType::BindError, "Failed to retrieve upstream"))?;
         println!("upstream: {upstream}\n");
 
@@ -62,16 +60,17 @@ impl ProxyHttp for NullnetProxy {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), nullnet_liberror::Error> {
     let proxy_address = format!("0.0.0.0:{PROXY_PORT}");
     println!("Running Nullnet proxy at {proxy_address}\n");
 
     // start proxy server
-    let mut my_server = Server::new(None).expect("Failed to instantiate proxy server");
+    let mut my_server = Server::new(None).handle_err(location!())?;
     my_server.bootstrap();
 
-    let mut proxy =
-        pingora_proxy::http_proxy_service(&my_server.configuration, NullnetProxy::new());
+    let nullnet_proxy = NullnetProxy::new().await?;
+    let mut proxy = pingora_proxy::http_proxy_service(&my_server.configuration, nullnet_proxy);
     proxy.add_tcp(&proxy_address);
 
     my_server.add_service(proxy);
@@ -81,70 +80,11 @@ fn main() {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) struct BrowserRequest {
     pub(crate) client_ip: IpAddr,
-    pub(crate) service: Service,
+    pub(crate) service: String,
 }
 
 impl Display for BrowserRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} -> {}", self.client_ip, self.service.0)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Default)]
-pub struct OvsVlan {
-    pub id: u16,
-    pub ports: Vec<Ipv4Network>,
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::OvsVlan;
-    use ipnetwork::Ipv4Network;
-    use serde_test::{Configure, Token, assert_tokens};
-    use std::net::Ipv4Addr;
-
-    fn vlan_for_tests() -> OvsVlan {
-        OvsVlan {
-            id: 10,
-            ports: vec![
-                Ipv4Network::new(Ipv4Addr::new(8, 8, 8, 8), 24).unwrap(),
-                Ipv4Network::new(Ipv4Addr::new(16, 16, 16, 16), 8).unwrap(),
-            ],
-        }
-    }
-
-    #[test]
-    fn test_serialize_and_deserialize_vlan() {
-        let vlan_setup_request = vlan_for_tests();
-
-        assert_tokens(
-            &vlan_setup_request.readable(),
-            &[
-                Token::Struct {
-                    name: "OvsVlan",
-                    len: 2,
-                },
-                Token::Str("id"),
-                Token::U16(10),
-                Token::Str("ports"),
-                Token::Seq { len: Some(2) },
-                Token::Str("8.8.8.8/24"),
-                Token::Str("16.16.16.16/8"),
-                Token::SeqEnd,
-                Token::StructEnd,
-            ],
-        );
-    }
-
-    #[test]
-    fn test_toml_string_vlan() {
-        let vlan_setup_request = vlan_for_tests();
-
-        assert_eq!(
-            toml::to_string(&vlan_setup_request).unwrap(),
-            "id = 10\n\
-             ports = [\"8.8.8.8/24\", \"16.16.16.16/8\"]\n"
-        );
+        write!(f, "{} -> {}", self.client_ip, self.service)
     }
 }
