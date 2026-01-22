@@ -16,8 +16,8 @@ pub struct NullnetProxy {
 
 impl NullnetProxy {
     pub async fn new() -> Result<Self, Error> {
-        let host = std::env::var("CONTROL_SERVICE_ADDR").handle_err(location!())?;
-        let port_str = std::env::var("CONTROL_SERVICE_PORT").handle_err(location!())?;
+        let host = std::env::var("CONTROL_SERVICE_ADDR").unwrap_or(String::from("0.0.0.0"));
+        let port_str = std::env::var("CONTROL_SERVICE_PORT").unwrap_or(String::from("50051"));
         let port = port_str.parse::<u16>().handle_err(location!())?;
 
         let server = NullnetGrpcInterface::new(&host, port, false)

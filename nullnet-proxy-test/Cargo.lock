@@ -1239,6 +1239,7 @@ name = "nullnet-grpc-lib"
 version = "0.1.0"
 dependencies = [
  "prost",
+ "serde",
  "tokio",
  "tonic",
  "tonic-prost",
