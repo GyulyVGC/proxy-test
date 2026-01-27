@@ -9,7 +9,8 @@ use tokio::sync::Mutex;
 
 pub struct NullnetProxy {
     /// Mapping of client IP + target service to upstream VLAN address
-    connections: Arc<Mutex<HashMap<BrowserRequest, SocketAddr>>>,
+    // TODO: re-enable connection caching if needed
+    // connections: Arc<Mutex<HashMap<BrowserRequest, SocketAddr>>>,
     /// gRPC interface to Nullnet control service
     server: NullnetGrpcInterface,
 }
@@ -25,15 +26,17 @@ impl NullnetProxy {
             .handle_err(location!())?;
 
         Ok(Self {
-            connections: Arc::new(Mutex::new(HashMap::new())),
+            // TODO: re-enable connection caching if needed
+            // connections: Arc::new(Mutex::new(HashMap::new())),
             server,
         })
     }
 
     pub async fn get_or_add_upstream(&self, browser_req: BrowserRequest) -> Option<SocketAddr> {
-        if let Some(upstream) = self.connections.lock().await.get(&browser_req) {
-            return Some(*upstream);
-        }
+        // TODO: re-enable connection caching if needed
+        // if let Some(upstream) = self.connections.lock().await.get(&browser_req) {
+        //     return Some(*upstream);
+        // }
 
         println!("requesting new upstream...");
 
@@ -46,7 +49,8 @@ impl NullnetProxy {
         let host_port = u16::try_from(response.port).ok()?;
         let upstream = SocketAddr::new(veth_ip, host_port);
 
-        self.connections.lock().await.insert(browser_req, upstream);
+        // TODO: re-enable connection caching if needed
+        // self.connections.lock().await.insert(browser_req, upstream);
 
         Some(upstream)
     }
