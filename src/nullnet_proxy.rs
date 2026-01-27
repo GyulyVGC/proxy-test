@@ -1,16 +1,12 @@
-use crate::BrowserRequest;
 use nullnet_grpc_lib::NullnetGrpcInterface;
 use nullnet_grpc_lib::nullnet_grpc::ProxyRequest;
 use nullnet_liberror::{Error, ErrorHandler, Location, location};
-use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 pub struct NullnetProxy {
     /// Mapping of client IP + target service to upstream VLAN address
     // TODO: re-enable connection caching if needed
-    // connections: Arc<Mutex<HashMap<BrowserRequest, SocketAddr>>>,
+    // connections: Arc<Mutex<HashMap<ProxyRequest, SocketAddr>>>,
     /// gRPC interface to Nullnet control service
     server: NullnetGrpcInterface,
 }
@@ -32,25 +28,22 @@ impl NullnetProxy {
         })
     }
 
-    pub async fn get_or_add_upstream(&self, browser_req: BrowserRequest) -> Option<SocketAddr> {
+    pub async fn get_or_add_upstream(&self, proxy_req: ProxyRequest) -> Option<SocketAddr> {
         // TODO: re-enable connection caching if needed
-        // if let Some(upstream) = self.connections.lock().await.get(&browser_req) {
+        // if let Some(upstream) = self.connections.lock().await.get(&proxy_req) {
         //     return Some(*upstream);
         // }
 
         println!("requesting new upstream...");
 
-        let proxy_request = ProxyRequest {
-            service_name: browser_req.service.clone(),
-        };
-        let response = self.server.proxy(proxy_request).await.ok()?;
+        let response = self.server.proxy(proxy_req).await.ok()?;
 
         let veth_ip: IpAddr = response.ip.parse().ok()?;
         let host_port = u16::try_from(response.port).ok()?;
         let upstream = SocketAddr::new(veth_ip, host_port);
 
         // TODO: re-enable connection caching if needed
-        // self.connections.lock().await.insert(browser_req, upstream);
+        // self.connections.lock().await.insert(proxy_req, upstream);
 
         Some(upstream)
     }

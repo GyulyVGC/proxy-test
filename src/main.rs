@@ -2,13 +2,12 @@ mod nullnet_proxy;
 
 use crate::nullnet_proxy::NullnetProxy;
 use async_trait::async_trait;
+use nullnet_grpc_lib::nullnet_grpc::ProxyRequest;
 use nullnet_liberror::{ErrorHandler, Location, location};
 use pingora_core::server::Server;
 use pingora_core::upstreams::peer::HttpPeer;
 use pingora_core::{Error, ErrorType, Result};
 use pingora_proxy::{ProxyHttp, Session};
-use std::fmt::Display;
-use std::net::IpAddr;
 use std::thread;
 
 const PROXY_PORT: u16 = 7777;
@@ -45,13 +44,17 @@ impl ProxyHttp for NullnetProxy {
                     "Client address is not an Inet address",
                 )
             })?
-            .ip();
+            .ip()
+            .to_string();
 
-        let service = url.to_string();
-        let client_req = BrowserRequest { client_ip, service };
-        println!("{client_req}");
+        let service_name = url.to_string();
+        let proxy_req = ProxyRequest {
+            client_ip,
+            service_name,
+        };
+        println!("{proxy_req:?}");
         let upstream = self
-            .get_or_add_upstream(client_req)
+            .get_or_add_upstream(proxy_req)
             .await
             .ok_or_else(|| Error::explain(ErrorType::BindError, "Failed to retrieve upstream"))?;
         println!("upstream: {upstream}\n");
@@ -79,16 +82,4 @@ async fn main() -> Result<(), nullnet_liberror::Error> {
     let handle = thread::spawn(|| my_server.run_forever());
     handle.join().unwrap();
     Ok(())
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub(crate) struct BrowserRequest {
-    pub(crate) client_ip: IpAddr,
-    pub(crate) service: String,
-}
-
-impl Display for BrowserRequest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} -> {}", self.client_ip, self.service)
-    }
 }
