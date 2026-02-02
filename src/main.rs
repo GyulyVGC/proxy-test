@@ -9,6 +9,7 @@ use pingora_core::upstreams::peer::HttpPeer;
 use pingora_core::{Error, ErrorType, Result};
 use pingora_proxy::{ProxyHttp, Session};
 use std::thread;
+use std::time::Instant;
 
 const PROXY_PORT: u16 = 7777;
 
@@ -18,6 +19,8 @@ impl ProxyHttp for NullnetProxy {
     fn new_ctx(&self) -> Self::CTX {}
 
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
+        let init_t = Instant::now();
+
         let host_header = session
             .get_header("host")
             .ok_or_else(|| Error::explain(ErrorType::BindError, "No host header in request"))?;
@@ -60,6 +63,12 @@ impl ProxyHttp for NullnetProxy {
         println!("upstream: {upstream}\n");
 
         let peer = Box::new(HttpPeer::new(upstream, false, String::new()));
+
+        println!(
+            "TOTAL VLANS SETUP TIME: {} ms\n",
+            init_t.elapsed().as_millis()
+        );
+
         Ok(peer)
     }
 }
