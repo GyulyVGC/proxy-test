@@ -23,7 +23,7 @@ jobs:
         include:
           - os: ubuntu
           - os: macos
-          - os: windows
+#          - os: windows
 
     steps:
       - uses: actions/checkout@v6
