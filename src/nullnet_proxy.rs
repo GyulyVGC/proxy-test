@@ -21,15 +21,15 @@ impl NullnetProxy {
         Ok(Self { server })
     }
 
-    pub async fn get_or_add_upstream(&self, proxy_req: ProxyRequest) -> Option<SocketAddr> {
+    pub async fn get_or_add_upstream(&self, proxy_req: ProxyRequest) -> Result<SocketAddr, Error> {
         println!("requesting new upstream...");
 
-        let response = self.server.proxy(proxy_req).await.ok()?;
+        let response = self.server.proxy(proxy_req).await.handle_err(location!())?;
 
-        let veth_ip: IpAddr = response.ip.parse().ok()?;
-        let host_port = u16::try_from(response.port).ok()?;
+        let veth_ip: IpAddr = response.ip.parse().handle_err(location!())?;
+        let host_port = u16::try_from(response.port).handle_err(location!())?;
         let upstream = SocketAddr::new(veth_ip, host_port);
 
-        Some(upstream)
+        Ok(upstream)
     }
 }

@@ -21,17 +21,27 @@ impl ProxyHttp for NullnetProxy {
     fn new_ctx(&self) -> Self::CTX {}
 
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
+        println!(
+            "Received new proxy request from client: {:?}\n",
+            session.client_addr()
+        );
+
         let init_t = Instant::now();
 
         let host_header = session
             .get_header("host")
-            .ok_or_else(|| Error::explain(ErrorType::BindError, "No host header in request"))?;
+            .ok_or("No host header in request")
+            .handle_err(location!())
+            .map_err(|_| Error::explain(ErrorType::BindError, "No host header in request"))?;
         let host_str = host_header
             .to_str()
+            .handle_err(location!())
             .map_err(|_| Error::explain(ErrorType::BindError, "Invalid host header"))?;
         let url = host_str
             .strip_suffix(&format!(":{PROXY_PORT}"))
-            .ok_or_else(|| {
+            .ok_or("Host header does not contain proxy port")
+            .handle_err(location!())
+            .map_err(|_| {
                 Error::explain(
                     ErrorType::BindError,
                     "Host header does not contain proxy port",
@@ -39,11 +49,15 @@ impl ProxyHttp for NullnetProxy {
             })?;
         let client_ip = session
             .client_addr()
-            .ok_or_else(|| {
+            .ok_or("Client address not found in session")
+            .handle_err(location!())
+            .map_err(|_| {
                 Error::explain(ErrorType::BindError, "Client address not found in session")
             })?
             .as_inet()
-            .ok_or_else(|| {
+            .ok_or("Client address is not an Inet address")
+            .handle_err(location!())
+            .map_err(|_| {
                 Error::explain(
                     ErrorType::BindError,
                     "Client address is not an Inet address",
@@ -61,7 +75,7 @@ impl ProxyHttp for NullnetProxy {
         let upstream = self
             .get_or_add_upstream(proxy_req)
             .await
-            .ok_or_else(|| Error::explain(ErrorType::BindError, "Failed to retrieve upstream"))?;
+            .map_err(|_| Error::explain(ErrorType::BindError, "Failed to retrieve upstream"))?;
         println!("upstream: {upstream}\n");
 
         let peer = Box::new(HttpPeer::new(upstream, false, String::new()));
@@ -87,7 +101,6 @@ async fn main() -> Result<(), nullnet_liberror::Error> {
     }
 
     let proxy_address = format!("0.0.0.0:{PROXY_PORT}");
-    println!("Running Nullnet proxy at {proxy_address}\n");
 
     // start proxy server
     let mut my_server = Server::new(None).handle_err(location!())?;
@@ -97,6 +110,8 @@ async fn main() -> Result<(), nullnet_liberror::Error> {
     let mut proxy = pingora_proxy::http_proxy_service(&my_server.configuration, nullnet_proxy);
     proxy.add_tcp(&proxy_address);
     my_server.add_service(proxy);
+
+    println!("Running Nullnet proxy at {proxy_address}\n");
 
     // run on separate thread to avoid "cannot start a runtime from within a runtime"
     let handle = thread::spawn(|| my_server.run_forever());
