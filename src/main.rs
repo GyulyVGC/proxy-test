@@ -9,7 +9,6 @@ use pingora_core::server::Server;
 use pingora_core::upstreams::peer::HttpPeer;
 use pingora_core::{Error, ErrorType, Result};
 use pingora_proxy::{ProxyHttp, Session};
-use std::fs::create_dir_all;
 use std::thread;
 use std::time::Instant;
 
@@ -122,7 +121,7 @@ async fn main() -> Result<(), nullnet_liberror::Error> {
 // fn redirect_stdout_stderr_to_file()
 // -> Option<(gag::Redirect<std::fs::File>, gag::Redirect<std::fs::File>)> {
 //     let dir = "/var/log/nullnet";
-//     create_dir_all(dir).handle_err(location!()).ok()?;
+//     std::fs::create_dir_all(dir).handle_err(location!()).ok()?;
 //     let timestamp = chrono::Utc::now().format("%Y-%m-%d_%H-%M-%S");
 //     let file_path = format!("{dir}/proxy_{timestamp}.txt");
 //     if let Ok(logs_file) = std::fs::OpenOptions::new()
