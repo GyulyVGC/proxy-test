@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/%H/nullnet-proxy
-EnvironmentFile=/home/%H/nullnet-proxy/.env
-ExecStart=/home/%H/nullnet-proxy/target/release/nullnet-proxy
+WorkingDirectory=/root/nullnet-proxy
+EnvironmentFile=/root/nullnet-proxy/.env
+ExecStart=/root/nullnet-proxy/target/release/nullnet-proxy
 Restart=always
 
 [Install]
