@@ -12,7 +12,7 @@ use pingora_proxy::{ProxyHttp, Session};
 use std::thread;
 use std::time::Instant;
 
-const PROXY_PORT: u16 = 7777;
+const PROXY_PORT: u16 = 80;
 
 #[async_trait]
 impl ProxyHttp for NullnetProxy {
@@ -38,14 +38,7 @@ impl ProxyHttp for NullnetProxy {
             .map_err(|_| Error::explain(ErrorType::BindError, "Invalid host header"))?;
         let url = host_str
             .strip_suffix(&format!(":{PROXY_PORT}"))
-            .ok_or("Host header does not contain proxy port")
-            .handle_err(location!())
-            .map_err(|_| {
-                Error::explain(
-                    ErrorType::BindError,
-                    "Host header does not contain proxy port",
-                )
-            })?;
+            .unwrap_or(host_str);
         let client_ip = session
             .client_addr()
             .ok_or("Client address not found in session")
